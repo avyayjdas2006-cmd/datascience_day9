@@ -1,156 +1,158 @@
-# ML Predictor Suite — Car Price & Customer Churn
+ 🚗 Used Car Price Predictor — ML Deployment Challenge
 
 **Participant Name:** Avyay J Das
 **MUID:** avyayjdas@mulearn
 
-## 🌐 Deployment Link
-
-> _Add your live Streamlit Community Cloud URL here after deploying, e.g._
-> `https://<your-app-name>.streamlit.app`
-
 ---
 
-## 📖 Project Overview
+## 📌 Project Overview
 
-A single Streamlit app that bundles two independent ML predictors, built as two
-"pages" of one deployable application:
+This project takes a regression model trained on the **CarDekho Used Car
+Price Prediction** dataset (Day 5,
+[Kaggle link](https://www.kaggle.com/datasets/manishkr1754/cardekho-used-car-data),
+15,411 real listings) and deploys it as an interactive **Streamlit** web
+application. A user enters a car's details — brand, model, age, kilometers
+driven, fuel type, transmission, engine specs, etc. — and receives an
+instant estimated resale price.
 
-| App | Task | Model | Held-out performance |
-|---|---|---|---|
-| 🚗 Car Price Predictor | Regression — estimate a used car's resale price (₹) | Random Forest Regressor | R² = 0.888, MAE ≈ ₹99,000 |
-| 📉 Customer Churn Predictor | Classification — predict whether a subscriber will churn | Decision Tree Classifier (max_depth=10) | Accuracy = 99.8%, ROC AUC = 0.999 |
+**Pipeline:**
+1. `data/cardekho_dataset.csv` — the real Kaggle dataset (15,411 rows, 32
+   brands, 120 models).
+2. `train_model.py` — light cleaning (drops a couple of bad rows — see
+   [Challenges Faced](#-challenges-faced)), then builds a `scikit-learn`
+   `Pipeline` (`StandardScaler` + `OneHotEncoder` → `RandomForestRegressor`),
+   trains it, evaluates it, and saves `model/car_price_model.pkl` +
+   `model/metadata.json`.
+3. `app.py` — the Streamlit UI. Loads the saved pipeline and lets users get
+   live predictions with no retraining needed.
 
-Both models were **reused from a previous assignment** (per the brief's
-"reuse or retrain" option) and then **retrained** inside clean, self-contained
-scikit-learn `Pipeline`s so they can be deployed reliably:
+`generate_synthetic_data.py` is also included — it was used to bootstrap a
+schema-matched dummy dataset while the real Kaggle CSV was being sourced,
+so the project could be developed and tested end-to-end beforehand. It's
+no longer needed now that the real data is in `data/`, but is kept for
+reference / in case you want to regenerate a quick synthetic sample.
 
-- **Car price** — reuses the exact approach from
-  `notebooks/car_price_prediction_4_.ipynb` (one-hot encode categoricals →
-  scale → Random Forest, which that notebook identified as the best of three
-  candidate models). See *Deployment Approach* below for the one packaging
-  change made.
-- **Customer churn** — reuses the architecture and hyperparameters of the
-  pretrained model supplied from the earlier assignment
-  (`notebooks/best_churn_model_original.pkl`, a
-  `DecisionTreeClassifier(max_depth=10, random_state=42)`), retrained
-  end-to-end because the original scaler/training script weren't available
-  (see *Challenges Faced*).
+### Model performance (on held-out test split, real data)
+| Metric | Value |
+|---|---|
+| MAE | ≈ ₹ 0.95 Lakh |
+| R² | ≈ 0.938 |
+| Training rows | 15,397 (after cleaning) |
 
 ## 🗂️ Project Structure
-
 ```
-.
-├── app.py                              # Home page / entry point
-├── common.py                           # Shared CSS + UI helpers
-├── pages/
-│   ├── 1_Car_Price_Predictor.py        # Car price mini-app
-│   └── 2_Customer_Churn_Predictor.py   # Churn mini-app
-├── train_car_model.py                  # Trains + saves the car price pipeline
-├── train_churn_model.py                # Trains + saves the churn pipeline
-├── models/
-│   ├── car_price_model.pkl             # Trained sklearn Pipeline
-│   ├── car_price_meta.json             # Dropdown options + ranges for the form
-│   ├── churn_model.pkl
-│   └── churn_meta.json
-├── data/
-│   ├── cardekho_dataset.csv
-│   └── customer_churn_dataset.csv
-├── notebooks/                          # Original assignment artifacts (reference)
-│   ├── car_price_prediction_4_.ipynb
-│   └── best_churn_model_original.pkl
+car-price-predictor/
+├── app.py                      # Streamlit web app
+├── train_model.py              # Trains and saves the model pipeline
+├── generate_synthetic_data.py  # Builds the demo dataset
 ├── requirements.txt
-└── README.md
+├── README.md
+├── data/
+│   └── cardekho_dataset.csv
+└── model/
+    ├── car_price_model.pkl     # Trained pipeline (preprocessing + model)
+    └── metadata.json           # Dropdown options, ranges, metrics for the UI
 ```
 
-## 🚀 Deployment Approach
+## 📊 About the Dataset
 
-1. **Model packaging.** Both models are wrapped in a single
-   `sklearn.pipeline.Pipeline` (`ColumnTransformer` with `OneHotEncoder` →
-   model), saved with `joblib.dump(..., compress=3)`. This is the one change
-   from the original notebook's approach, which used manual
-   `pd.get_dummies()` plus a separately fitted `StandardScaler` — convenient
-   for a notebook, but fragile in an app where a user's form selection needs
-   to be encoded exactly the same way at request time. A single pipeline
-   object takes a raw one-row DataFrame straight from the form and returns a
-   prediction, with `handle_unknown="ignore"` so an unseen category can't
-   crash the app.
-2. **Interface.** One Streamlit app with a home page and two
-   auto-discovered sub-pages (`pages/`), so it's one repo and one deployment
-   that serves both predictors, navigable via `st.page_link`.
-3. **Hosting.** Built for **Streamlit Community Cloud** (free, and the most
-   direct path from a public GitHub repo to a public URL). To deploy:
-   1. Push this folder to a public GitHub repository.
-   2. Go to [share.streamlit.io](https://share.streamlit.io), sign in with
-      GitHub, and click **New app**.
-   3. Pick the repo/branch and set the main file path to `app.py`.
-   4. Click **Deploy**. Streamlit Cloud installs `requirements.txt`
-      automatically and gives you a public `*.streamlit.app` URL.
-   5. Paste that URL into the *Deployment Link* section at the top of this
-      README.
-4. **Reproducing the models.** The `.pkl` files in `models/` are already
-   trained and committed, so the app works out of the box. To retrain:
-   ```bash
-   pip install -r requirements.txt
-   python train_car_model.py
-   python train_churn_model.py
-   streamlit run app.py
-   ```
+`data/cardekho_dataset.csv` is the real **CarDekho Used Car Price
+Prediction** dataset from Kaggle — 15,411 listings across 32 brands and
+120 models, with columns: `brand`, `model`, `vehicle_age`, `km_driven`,
+`seller_type`, `fuel_type`, `transmission_type`, `mileage`, `engine`,
+`max_power`, `seats`, `selling_price`.
+
+If you ever want to retrain on an updated export, just overwrite
+`data/cardekho_dataset.csv` with the same column names and re-run
+`python train_model.py` — `app.py` needs no changes since it reads whatever
+`model/metadata.json` reports.
+
+## 🚀 Running Locally
+
+```bash
+# 1. Clone the repo
+git clone <your-repo-url>
+cd car-price-predictor
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. (Optional) regenerate data and retrain
+python generate_synthetic_data.py
+python train_model.py
+
+# 4. Launch the app
+streamlit run app.py
+```
+The app opens at `http://localhost:8501`.
+
+## 🌐 Deployment Approach
+
+Deployed on **Streamlit Community Cloud** (free, and the simplest path from a
+public GitHub repo to a live URL):
+
+1. Push this project to a public GitHub repository (including the `model/`
+   folder, so the app doesn't need to retrain on startup).
+2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with
+   GitHub.
+3. Click **New app** → select the repo, branch (`main`), and main file
+   path (`app.py`).
+4. Click **Deploy**. Streamlit Cloud installs `requirements.txt` and starts
+   the app automatically. Every future push to `main` auto-redeploys.
+5. Copy the generated public URL (`https://<app-name>.streamlit.app`) into
+   the [Deployment Link](#-deployment-link) section below.
+
+*Alternative platforms this repo also works on unchanged: Hugging Face
+Spaces (Streamlit SDK), Render (Web Service, start command
+`streamlit run app.py --server.port $PORT --server.address 0.0.0.0`), or
+Railway.*
+
+## 🌐 Deployment Link
+> _[Paste your public app URL here after deploying, e.g.
+> `https://your-app-name.streamlit.app`]_
 
 ## 🔍 Key Observations
+- Wrapping preprocessing and the model together in a single `sklearn.Pipeline`
+  made deployment much simpler — the app only ever calls `.predict()` on raw,
+  human-readable inputs, with no manual encoding logic duplicated in `app.py`.
+- Saving UI metadata (dropdown options, slider ranges, metrics) to a small
+  `metadata.json` file at training time keeps the app in sync with the model
+  automatically — no hardcoded lists to maintain by hand.
+- `st.cache_resource` avoids reloading the model file on every user
+  interaction, keeping predictions fast.
+- On the real data, R² landed around 0.94 with MAE ≈ ₹95K, which is solid
+  given selling prices range from tens of thousands to tens of lakhs.
+  Vehicle age, kilometers driven, and engine/power specs were the strongest
+  drivers of predicted price, matching domain intuition about depreciation.
 
-- **Encoding, not scaling, mattered most for the tree models.** Both the
-  Decision Tree (churn) and Random Forest (price) are invariant to
-  monotonic scaling of individual features, so the real engineering work was
-  getting the *categorical encoding* exactly right and reproducible, not
-  the numeric scaling.
-- **Brand/model is the dominant price signal.** Re-running the car pipeline
-  reproduced the notebook's own finding almost exactly (R² 0.888 here vs.
-  0.887 in the notebook) — confirming the packaging change didn't alter
-  model behavior, just how it's called.
-- **Retraining beat reusing the raw artifact for churn.** The supplied
-  `best_churn_model_original.pkl` is a real, valid `DecisionTreeClassifier`,
-  but calling it directly against the only data file available produced
-  near-random accuracy (~47–54%, ROC AUC ≈ 0.5–0.56 under several
-  reasonable encoding/scaling guesses) — see *Challenges Faced*.
-
-## 🧗 Challenges Faced
-
-- **Missing preprocessing artifacts for the churn model.** Only the trained
-  `.pkl` was provided from the previous assignment — not the training
-  notebook, the fitted encoder/scaler, or the original training data.
-  Inspecting `model.feature_names_in_` recovered the exact feature schema
-  (label-encoded `Gender`, one-hot dummies for `Subscription Type` and
-  `Contract Length` with `Basic`/`Annual` as the dropped baselines), but
-  without the original scaler, predictions on the one churn CSV available
-  were essentially uncorrelated with the true labels. Rather than ship a
-  model that looks reused but performs at chance, the same architecture and
-  hyperparameters were retrained end-to-end on the available data — accuracy
-  went from ~50% to 99.8%, which is itself a good illustration of why
-  "reuse" and "retrain" are both legitimate, and sometimes retraining is the
-  more honest choice.
-- **High-cardinality categoricals for the car model.** `brand` (32 values)
-  and `model` (120 values) one-hot encode to ~160 columns. This kept the
-  Random Forest's default settings from being deployable (an uncompressed,
-  untuned forest came out to ~240 MB, over GitHub's per-file limit).
-  `n_estimators`/`max_depth` were tuned down and `joblib` compression was
-  applied, cutting the file to ~20 MB with no meaningful loss in R².
-- **Streamlit's multipage navigation.** `st.page_link` only resolves page
-  metadata correctly when the app is entered through its main script
-  (`app.py`) — verified with Streamlit's `AppTest` harness by driving
-  navigation through the entry point rather than instantiating a sub-page
-  in isolation.
+## 🧩 Challenges Faced
+- **Real-world data quality:** the raw CSV had a couple of bad rows — two
+  listings with `seats = 0` (clearly a data-entry error for a Honda City
+  and a Nissan Kicks) and one listing with `km_driven = 3,800,000` (a
+  Mahindra XUV500 that's almost certainly missing a decimal point or has an
+  extra digit). `train_model.py` filters these out (`seats >= 2`,
+  `km_driven <= 500,000`) before training — without this, the outlier alone
+  would have distorted the `km_driven` slider range in the app.
+- Balancing input flexibility (letting users pick any brand/model
+  combination) against realistic predictions required constraining the model
+  dropdown to only the models seen for each selected brand.
+- Keeping the model artifact and its preprocessing logic bundled as one
+  `.pkl` avoided a common deployment bug: preprocessing code drifting out of
+  sync with the trained model.
+- The full 300-tree RandomForest first trained was ~44MB — too heavy for a
+  clean GitHub push. Trimming to 120 trees / `max_depth=12` brought it down
+  to ~14MB with a negligible accuracy trade-off.
 
 ## 🔮 Future Improvements
-
-- Add SHAP-based explanations so a prediction comes with "why" (e.g. which
-  features pushed a customer's churn risk up).
-- Track prediction history / feedback in a small database to monitor drift
-  once real users start using the app.
-- For the car price model, engineer a smarter `model` feature (e.g. group
-  rare models into an "other" bucket per brand) to reduce dimensionality
-  without losing signal.
-- Add authentication + a lightweight admin view for retraining/re-uploading
-  models without a redeploy.
-- Containerize with Docker for hosting options beyond Streamlit Community
-  Cloud (Render, Railway, Hugging Face Spaces) with more control over
-  resources.
+- Add outlier detection/handling that's more systematic than fixed
+  thresholds (e.g. IQR-based filtering per brand).
+- Add model comparison (e.g. Gradient Boosting vs Random Forest vs Linear
+  Regression) with a leaderboard in the app.
+- Add a feature-importance chart in the app so users can see *why* a price
+  was predicted.
+- Add input validation/warnings for unusual combinations (e.g. very high
+  power with very low engine CC).
+- Track prediction history in-session and let users compare multiple cars
+  side by side.
+- Add authentication/rate-limiting if deployed for wider public use, and
+  monitoring for prediction drift over time.
