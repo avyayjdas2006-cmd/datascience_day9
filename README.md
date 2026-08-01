@@ -89,7 +89,7 @@ The app opens at `http://localhost:8501`.
 ## 🌐 Deployment Approach
 
 Deployed on **Streamlit Community Cloud** (free, and the simplest path from a
-public GitHub repo to a live URL):
+public GitHub repo to a live URL): https://datascienceday9-wyst4mq2gecse7g3xpkyjg.streamlit.app/
 
 1. Push this project to a public GitHub repository (including the `model/`
    folder, so the app doesn't need to retrain on startup).
